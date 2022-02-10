@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<title>reveal.js</title>
+
+		<link rel="stylesheet" href="dist/reset.css">
+		<link rel="stylesheet" href="dist/reveal.css">
+		<link rel="stylesheet" href="dist/theme/black.css">
+
+		<!-- Theme used for syntax highlighted code -->
+		<link rel="stylesheet" href="plugin/highlight/monokai.css">
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section data-markdown>
+          1. Problem description
+          1. Returnable.Pipe
+          1. With statements
+          1. Operation and operator naming
+          1. Refactoring opportunity
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+             string_date
+             |> parse_it()
+             |> compare_it_with(some_other_date)
+             |> do_some_other_operation_that_can_fail()
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            "2022-02-11"
+            |> Date.from_iso8601()
+            |> Date.compare(Date.utc_today)
+            |> do_some_operation_that_can_fail()
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            "2022-02-11"
+            |> Date.from_iso8601() # {:ok, ~D[2022-02-10]}
+            ... Date.compare(Date.utc_today)
+            ... do_some_operation_that_can_fail()
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            # ~>
+            def lift({:error, error}, _), do: {:error, error}
+            def lift({:ok, value}, fun), do: {:ok, fun.(value)}
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            "2022-02-11"
+            |> Date.from_iso8601() # {:ok, ~D[2022-02-10]}
+            ~> Date.compare(Date.utc_today)
+            ... do_some_operation_that_can_fail()
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            # ~>
+            def lift({:error, error}, _), do: {:error, error}
+            def lift({:ok, value}, fun), do: {:ok, fun.(value)}
+
+            # >>>
+            def chain({:error, error}, _), do: {:error, error}
+            def chain({:ok, value}, fun), do: fun.(value)
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            "2022-02-11"
+            |> Date.from_iso8601() # {:ok, ~D[2022-02-10]}
+            ~> Date.compare(Date.utc_today)
+            >>> do_some_operation_that_can_fail()
+          </code></pre>
+        </section>
+
+				<section data-markdown>
+          Returnable.Pipe
+          * implements only chain operation
+
+          Family of safe accessors
+          * BcUtil.CsvHelpers.safe_get_in()
+          * BcUtil.Arrow
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            # Util.ResponseTupleHelper
+            def flatten({:ok, {:ok, _} = state}), do: flatten(state)
+            def flatten({:ok, _} = input), do: input
+            def flatten({:error, {:error, _} = state}), do: flatten(state)
+            def flatten({:error, _} = input), do: input
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            with {:ok, date} <- Date.from_iso8601("2022-02-11"),
+              comparison_result <- Date.compare(date, Date.utc_today),
+              {:ok, result} <- do_some_operation_that_can_fail(comparison_result) do
+              {:ok, result}
+            else
+              {:error, reason} -> {:error, reason}
+            end 
+          </code></pre>
+        </section>
+
+				<section data-markdown>
+          * Why is fmap called lift and bind is called chain?
+          * And where did you get those operators from?
+          * https://github.com/witchcrafters/witchcraft
+          * they thought through and Elixirify the naming
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            def can_capture_activity?(pid) do
+              case EmpsaPayments.get_activity_id_by(pid: pid) do
+                nil ->
+                  :ok
+
+                activity_id ->
+                  if Map.get(Activities.get_by_id(activity_id), :cancel) do
+                    Error.tuple(%{reason: "Activity for pid already canceled", data: %{pid: pid}})
+                  else
+                    :ok
+                  end
+              end
+            end
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            # >>>
+            def chain(nil, _), do: nil
+            def chain(value, fun), do: fun.(value)
+          </code></pre>
+        </section>
+
+				<section>
+          <pre><code data-trim data-noescape>
+            def can_capture_activity?(pid) do
+              cancel_activity_exists? =
+                pid
+                |> Empsa.get_activity_id_by(pid: pid)
+                >>> Activities.get_by_id
+                >>> Map.get(:cancel)
+
+              if cancel_activity_exists? do
+                Error.tuple(%{reason: "Activity for pid already canceled", data: %{pid: pid}})
+              else
+                :ok
+              end 
+            end
+          </code></pre>
+        </section>
+			</div>
+		</div>
+
+		<script src="dist/reveal.js"></script>
+		<script src="plugin/notes/notes.js"></script>
+		<script src="plugin/markdown/markdown.js"></script>
+		<script src="plugin/highlight/highlight.js"></script>
+		<script>
+			// More info about initialization & config:
+			// - https://revealjs.com/initialization/
+			// - https://revealjs.com/config/
+			Reveal.initialize({
+				hash: true,
+
+				// Learn about plugins: https://revealjs.com/plugins/
+				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+			});
+		</script>
+	</body>
+</html>
